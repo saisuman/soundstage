@@ -1,4 +1,3 @@
-#include "wavfile.h"
 #include <errno.h>
 #include <fcntl.h>
 #include <memory>
@@ -8,6 +7,8 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include "wavfile.h"
 
 std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
 

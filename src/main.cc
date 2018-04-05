@@ -14,6 +14,7 @@
 
 #define RETURN_ON_ALC_ERROR(device, msg, retval)                               \
   {                                                                            \
+    ALenum error;                                                              \
     if ((error = alcGetError(device)) != AL_NO_ERROR) {                        \
       fprintf(stderr, "ERROR: %s: %s", msg, alcGetString(device, error));      \
       return retval;                                                           \
@@ -22,30 +23,30 @@
 
 #define RETURN_ON_AL_ERROR(msg, retval)                                        \
   {                                                                            \
+    ALenum error;                                                              \
     if ((error = alGetError()) != AL_NO_ERROR) {                               \
       fprintf(stderr, "ERROR: %s: %s", msg, alGetString(error));               \
       return retval;                                                           \
     }                                                                          \
   }
 
-class OpenAlDevice {
+class ALDevice {
 private:
-  OpenAlDevice(ALCdevice *device, ALCcontext *context)
+  ALDevice(ALCdevice *device, ALCcontext *context)
       : device_(device), context_(context) {}
 
 public:
-  static OpenAlDevice *open() {
+  static ALDevice *open() {
     alGetError();
-    ALCenum error;
     ALCdevice *device = alcOpenDevice(nullptr);
     RETURN_ON_ALC_ERROR(device, "Could not open.", nullptr);
     ALCcontext *context = alcCreateContext(device, nullptr);
     alcMakeContextCurrent(context);
     RETURN_ON_ALC_ERROR(device, "Could not setup context.", nullptr);
-    return new OpenAlDevice(device, context);
+    return new ALDevice(device, context);
   }
 
-  ~OpenAlDevice() {
+  ~ALDevice() {
     alGetError();
     alcMakeContextCurrent(nullptr);
     alcDestroyContext(context_);
@@ -60,10 +61,27 @@ private:
   ALCcontext *context_;
 };
 
+ALenum toALFormat(Header *header) {
+  if (header->numChannels == 2) {
+    if (header->bitsPerSample == 16) {
+      return AL_FORMAT_STEREO16;
+    } else if (header->bitsPerSample == 8) {
+      return AL_FORMAT_STEREO8;
+    }
+  } else if (header->numChannels == 1) {
+    if (header->bitsPerSample == 16) {
+      return AL_FORMAT_MONO16;
+    } else if (header->bitsPerSample == 8) {
+      return AL_FORMAT_MONO8;
+    }
+  }
+  return -1;
+}
+
 int main(int argc, char *argv[]) {
-  std::unique_ptr<WavFileContents> contents = readWavFile("horndive.wav");
-  ALenum error;
-  std::unique_ptr<OpenAlDevice> device(OpenAlDevice::open());
+  std::unique_ptr<WavFileContents> contents = readWavFile(argv[1]);
+  printf("OK: Assuming that %s is a 16-bpp WAV file.\n", argv[1]);
+  std::unique_ptr<ALDevice> device(ALDevice::open());
   if (device.get() == nullptr) {
     return -1;
   }
@@ -71,21 +89,32 @@ int main(int argc, char *argv[]) {
   alGenBuffers(1, buffers);
   RETURN_ON_AL_ERROR("Could not gen buffer.", -1);
 
-  alBufferData(buffers[0], AL_FORMAT_STEREO16, contents->data.get(),
+  alBufferData(buffers[0], toALFormat(&contents->header), contents->data.get(),
                contents->dataLength, contents->header.sampleRate);
   RETURN_ON_AL_ERROR("Could not buffer data.", -1);
 
+  // Position a listener at 0,0,0.
+  alListener3f(AL_POSITION, 0.0f, 0.0f, 0.0f);
+  RETURN_ON_AL_ERROR("Could not position listener.", -1);
+
+  // Position a source each at a unit distance on each axis.
   ALuint *sources = new ALuint;
   alGenSources(3, sources);
   RETURN_ON_AL_ERROR("Could not gen sources.", -1);
 
   alSourcei(sources[0], AL_BUFFER, buffers[0]);
+  alSourcei(sources[0], AL_PITCH, 1);
+  alSource3f(sources[0], AL_POSITION, 1.0f, 0.0f, 0.0f);
   RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
   alSourcei(sources[1], AL_BUFFER, buffers[0]);
+  alSourcei(sources[1], AL_PITCH, 2);
+  alSource3f(sources[1], AL_POSITION, 0.0f, 1.0f, 0.0f);
   RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
   alSourcei(sources[2], AL_BUFFER, buffers[0]);
+  alSourcei(sources[2], AL_PITCH, 3);
+  alSource3f(sources[2], AL_POSITION, 0.0f, 0.0f, 1.0f);
   RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
   alSourcePlay(sources[0]);

@@ -15,12 +15,12 @@ std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
   int fd = open(filename, S_IRWXG, O_RDONLY);
   if (fd < 0) {
     perror("Could not open file.");
-    return std::unique_ptr<WavFileContents>(nullptr);
+    return nullptr;
   }
   std::unique_ptr<WavFileContents> contents(new WavFileContents);
   if (read(fd, &contents->header, sizeof(Header)) != sizeof(Header)) {
     perror("Didn't read the headers.");
-    return std::unique_ptr<WavFileContents>(nullptr);
+    return nullptr;
   }
   printf("ChunkId: %.4s\nChunkSize: %d bytes\nFormat: %.4s\n",
          contents->header.chunkId, contents->header.chunkSize,
@@ -30,6 +30,10 @@ std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
   printf("AudoFormat: %d NumChannels: %d SampleRate: %d\n",
          contents->header.audioFormat, contents->header.numChannels,
          contents->header.sampleRate);
+  if (contents->header.audioFormat != 1) {
+    printf("ERROR: This is compressed audio and is unsupported.\n");
+    return nullptr;
+  }
   int bytesRead;
   SubChunk nextChunk;
   int bytesToRead = -1;
@@ -43,12 +47,12 @@ std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
     printf("Skipping %d bytes.\n", nextChunk.size);
     if (lseek(fd, nextChunk.size, SEEK_CUR) == -1) {
       perror("Seek failed.");
-      return std::unique_ptr<WavFileContents>(nullptr);
+      return nullptr;
     }
   }
   if (bytesToRead == -1) {
     printf("ERROR: Couldn't find a data chunk.\n");
-    return std::unique_ptr<WavFileContents>(nullptr);
+    return nullptr;
   }
 
   printf("Total data size: %d bytes\n", bytesToRead);
@@ -57,7 +61,7 @@ std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
   contents->dataLength = bytesToRead;
   if (read(fd, buffer, bytesToRead) != bytesToRead) {
     perror("Could not read wav file.");
-    return std::unique_ptr<WavFileContents>(nullptr);
+    return nullptr;
   }
   return contents;
 }

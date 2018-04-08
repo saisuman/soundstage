@@ -11,7 +11,6 @@
 #include "wavfile.h"
 
 std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
-
   int fd = open(filename, S_IRWXG, O_RDONLY);
   if (fd < 0) {
     perror("Could not open file.");
@@ -62,6 +61,9 @@ std::unique_ptr<WavFileContents> readWavFile(const char *filename) {
   if (read(fd, buffer, bytesToRead) != bytesToRead) {
     perror("Could not read wav file.");
     return nullptr;
+  }
+  for (int i = 0; i < bytesToRead; i++) {
+    buffer[i] -= (20 - random()  % 20);
   }
   return contents;
 }

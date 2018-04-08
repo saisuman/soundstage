@@ -1,5 +1,8 @@
 #include <memory>
 
+#ifndef __WAVFILE_H__
+#define __WAVFILE_H__
+
 struct SubChunk {
     char id[4];
     int size;
@@ -25,3 +28,5 @@ struct WavFileContents {
 };
 
 std::unique_ptr<WavFileContents> readWavFile(const char* filename);
+
+#endif /* __WAVFILE_H__ */

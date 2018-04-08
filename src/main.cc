@@ -11,6 +11,8 @@
 #include <sys/types.h>
 #include <time.h>
 #include <unistd.h>
+#include <iostream>
+#include "config.h"
 
 #define RETURN_ON_ALC_ERROR(device, msg, retval)                               \
   {                                                                            \
@@ -79,8 +81,16 @@ ALenum toALFormat(Header *header) {
 }
 
 int main(int argc, char *argv[]) {
-  std::unique_ptr<WavFileContents> contents = readWavFile(argv[1]);
-  printf("OK: Assuming that %s is a 16-bpp WAV file.\n", argv[1]);
+  Config config(argv[1]);
+  const std::string err = config.load();
+  if (!err.empty()) {
+    std::cerr << "Error loading config: " << err << std::endl;
+    return -1;
+  }
+  return 0;
+
+  std::unique_ptr<WavFileContents> contents(readWavFile(argv[1]).get());
+  std::cout << "OK: Assuming that %s is a 16-bpp WAV file." << argv[1] << std::endl;
   std::unique_ptr<ALDevice> device(ALDevice::open());
   if (device.get() == nullptr) {
     return -1;
@@ -104,24 +114,30 @@ int main(int argc, char *argv[]) {
 
   alSourcei(sources[0], AL_BUFFER, buffers[0]);
   alSourcei(sources[0], AL_PITCH, 1);
-  alSource3f(sources[0], AL_POSITION, 1.0f, 0.0f, 0.0f);
+  alSource3f(sources[0], AL_POSITION, 10.0f, 0.0f, 0.0f);
   RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
-  alSourcei(sources[1], AL_BUFFER, buffers[0]);
-  alSourcei(sources[1], AL_PITCH, 2);
-  alSource3f(sources[1], AL_POSITION, 0.0f, 1.0f, 0.0f);
-  RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
+  // alSourcei(sources[1], AL_BUFFER, buffers[0]);
+  // alSourcei(sources[1], AL_PITCH, 2);
+  // alSource3f(sources[1], AL_POSITION, 0.0f, 10.0f, 0.0f);
+  // RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
-  alSourcei(sources[2], AL_BUFFER, buffers[0]);
-  alSourcei(sources[2], AL_PITCH, 3);
-  alSource3f(sources[2], AL_POSITION, 0.0f, 0.0f, 1.0f);
-  RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
+  // alSourcei(sources[2], AL_BUFFER, buffers[0]);
+  // alSourcei(sources[2], AL_PITCH, 3);
+  // alSource3f(sources[2], AL_POSITION, 0.0f, 0.0f, 10.0f);
+  // RETURN_ON_AL_ERROR("Could not associate buffer with sources.", -1);
 
   alSourcePlay(sources[0]);
-  sleep(1);
-  alSourcePlay(sources[1]);
-  sleep(1);
-  alSourcePlay(sources[2]);
+  for (float f = 0.2f; f < 3.0; f += 0.1) {
+    //alSourcef(sources[0], AL_PITCH, f);
+    //alSource3f(sources[0], AL_POSITION, f * 2.0f, f * 2.0f, f * 2.0f);
+    sleep(1);
+  }
+
+  // sleep(1);
+  // alSourcePlay(sources[1]);
+  // sleep(1);
+  // alSourcePlay(sources[2]);
   sleep(10);
   return 0;
 }
